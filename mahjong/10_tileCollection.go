@@ -137,9 +137,9 @@ func (g *Game) Shuffle(deterministic bool) error {
     for i := range g.Undealt {
       var k int
       if deterministic {
-        k = insecureRand.Intn(TilesInGame)
+        k = insecureRand.Intn(i+1)
       } else {
-        j, err := rand.Int(rand.Reader, big.NewInt(int64(TilesInGame))) // note 0, excluding max
+        j, err := rand.Int(rand.Reader, big.NewInt(int64(i)+1)) // note 0, excluding max
         if err != nil {
           return err
         }

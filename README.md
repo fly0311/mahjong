@@ -13,6 +13,22 @@ Acknowledge the change in player by pressing `[enter]`.
 
 When prompted, enter a valid value (e.g., `y`, `n`, `0-n`), as requested. If an invalid value is provided, `0` is usually assumed.
 
+### Single player mode
+
+`./main -singlePlayer=true`
+
+The computer players in single player mode currently accepts presented win opportunities and, naively, accepts pong, triple, and seq opportunities, even if unnecessary or strategically suboptimal.
+
+Discard tile selection aims to retain intact sets and preferentially preserves plausible pairs, consecutive tiles that are not at the ends (to allow for up to two matching opportunities), consecutive tiles at the ends, and gapped consecutive tiles.
+
+### Log gameplay actions
+
+`./main -logFile=[filepath]`
+
+`tail -f [filepath]`
+
+Use the log file to keep track of previous player actions (e.g., when sets were revealed, full discard history), if of interest.
+
 ## Info
 
 Additional details at <https://www.0n0e.com/public/mahjong/>.

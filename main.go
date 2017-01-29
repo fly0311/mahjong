@@ -1,6 +1,6 @@
 /*
 mahjong: A computer-mediated Mah Jong game implemented in Go
-Copyright (C) 2016 <code@0n0e.com>
+Copyright (C) 2016-7 <code@0n0e.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,17 +20,50 @@ package main
 
 import (
   mahjong "./mahjong"
+  "flag"
+  "log"
+  "io"
+  "io/ioutil"
+  "os"
+  //"fmt"
 )
 
 func main() {
   p := -1
   game := 0
   
+  singlePlayerMode := flag.Bool("singlePlayer", false, "single player mode with computer players? [bool]")
+  logFile := flag.String("logFile", "", "log file for game [file path]")
+    
+  flag.Parse()
+  
+  var computerPlayers []bool = make([]bool, 4, 4)
+  if *singlePlayerMode {
+    computerPlayers[1] = *singlePlayerMode
+    computerPlayers[2] = *singlePlayerMode
+    computerPlayers[3] = *singlePlayerMode
+  }
+
+  // logging boilerplate: https://www.goinggo.net/2013/11/using-log-package-in-go.html
+  var outputLogDestination io.Writer
+  var err error
+  if *logFile == "" {
+    outputLogDestination = ioutil.Discard
+  } else {
+    outputLogDestination, err = os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+    if err != nil {
+      log.Fatalln("Could not open for writing: ", *logFile, ":", err)
+    }
+  }
+  
+  logInstance := log.New(outputLogDestination, "ACTION: ", 0)
+    
   // single game mode for now
   for game < 1 {
     // new game
     currentGame := mahjong.New()
-    currentGame.Initialize(p)
+    currentGame.OutputLog = logInstance
+    currentGame.Initialize(p, computerPlayers)
 
     // return outcome
     _, p = currentGame.BeginGame()

@@ -23,6 +23,8 @@ import(
   "fmt"
   "log"
   "strings"
+  "strconv"
+  insecureRand "math/rand"
 //  "errors"
 )
 
@@ -47,6 +49,7 @@ type PlayerHand struct {
   RevealedTileSets []TileSet
   Player int
   LastNewTile Tile
+  ComputerPlayer bool
 }
 
 // max value for each suit
@@ -178,6 +181,7 @@ func (h PlayerHand) RevealSpecialTile (t Tile) error {
   for k:= 0; k < 8; k++ {
     if h.Revealed[k] == EmptyTile {
       h.Revealed[k] = t
+      
       return nil
     }
   }
@@ -211,6 +215,72 @@ func (h PlayerHand) CountHiddenTiles(consider Tile) ([][]int, []int, []int) {
       tileCounts[tmpTile.Suit-1][tmpTile.Value]++
       tileCountsSum[tmpTile.Suit-1]++
       tileValuesSum[tmpTile.Suit-1] += tmpTile.Value
+    }
+  }
+  
+  return tileCounts, tileCountsSum, tileValuesSum
+}
+
+// compute tile counts for discards, optionally considering the last tile
+func (d DiscardPile) CountDiscardTiles(ignoreLast bool) ([][]int, []int, []int) {
+  // counts
+  tileCounts := make([][]int, 4, 4)
+  for i := 0; i < 4; i++ {
+    tileCounts[i] = make([]int, 10, 10)
+  } // allocating an extra two positions for the honor suit
+
+  // number of tiles in each suit
+  tileCountsSum := make([]int, 4, 4)
+  
+  // sum of values, applicable only to the first three suits
+  tileValuesSum := make([]int, 4, 4)
+  
+  // begin counting tiles
+  tileCount := len(d)
+  if ignoreLast && tileCount > 0 {
+    tileCount--
+  }
+
+  for i:= 0; i < tileCount; i++ {
+    if d[i].Item != EmptyTile {
+      tmpTile := d[i].Item
+      tileCounts[tmpTile.Suit-1][tmpTile.Value]++
+      tileCountsSum[tmpTile.Suit-1]++
+      tileValuesSum[tmpTile.Suit-1] += tmpTile.Value
+    }
+  }
+  
+  return tileCounts, tileCountsSum, tileValuesSum
+}
+
+// compute tile counts for public portion of hand
+func (h PlayerHand) CountPublicSetTiles() ([][]int, []int, []int) {
+  // counts
+  tileCounts := make([][]int, 4, 4)
+  for i := 0; i < 4; i++ {
+    tileCounts[i] = make([]int, 10, 10)
+  } // allocating an extra two positions for the honor suit
+
+  // number of tiles in each suit
+  tileCountsSum := make([]int, 4, 4)
+  
+  // sum of values, applicable only to the first three suits
+  tileValuesSum := make([]int, 4, 4)
+  
+  // TODO: make more efficient when underlying tiles are stored
+  // begin counting tiles
+  for i:= 0; i < len(h.RevealedTileSets); i++ {
+    // map each tile
+    for _, rune := range h.RevealedTileSets[i].Tiles {
+      for m := 0; m < 4; m++ {
+        for n, rud := range UnicodeDisplay[m] {
+          if rud == string(rune) {
+            tileCounts[m][n]++
+            tileCountsSum[m]++
+            tileValuesSum[m] += n
+          }
+        }
+      }
     }
   }
   
@@ -645,6 +715,207 @@ func (h PlayerHand) HaveSeq(consider Tile, tileSource string) (bool, []TileSet) 
   }
   
   return seqFound, seqSets
+}
+
+// computer player: take the win?
+// naively, yes
+func (h PlayerHand) TakeWin(discard []DiscardedTile, considerLastDiscard bool, hands []PlayerHand) string {
+  return "y"
+}        
+
+// computer player: take kong?
+// naively, yes
+func (h PlayerHand) TakeKong(discard []DiscardedTile, considerLastDiscard bool, hands []PlayerHand) string {
+  return "y"
+}
+
+// computer player: take pong?
+// naively, yes
+func (h PlayerHand) TakePong(discard []DiscardedTile, considerLastDiscard bool, hands []PlayerHand) string {
+  return "y"
+}
+
+// computer player: take seq?
+// naively, take the first one
+func (h PlayerHand) TakeSeq(discard []DiscardedTile, considerLastDiscard bool, hands []PlayerHand, options []TileSet) string {
+  return "0"
+}      
+
+// computer player: what to discard?
+// naively, the first tile
+func (h PlayerHand) Discard(discard DiscardPile, considerLastDiscard bool, hands []PlayerHand) string {
+  // count internal hand
+  tileCounts, tileCountsSum, tileValuesSum := h.CountHiddenTiles(EmptyTile)
+  // count discarded
+  dtileCounts, dtileCountsSum, dtileValuesSum := discard.CountDiscardTiles(false)
+  // count unusable tiles (aside from discard)
+  u0tileCounts, u0tileCountsSum, u0tileValuesSum := hands[0].CountPublicSetTiles()
+  u1tileCounts, u1tileCountsSum, u1tileValuesSum := hands[1].CountPublicSetTiles()
+  u2tileCounts, u2tileCountsSum, u2tileValuesSum := hands[2].CountPublicSetTiles()
+  u3tileCounts, u3tileCountsSum, u3tileValuesSum := hands[3].CountPublicSetTiles()
+
+  // merge unavailable tiles
+  unavailableTileCounts := make([][]int, 4, 4)
+  for i := 0; i < 4; i++ {
+    unavailableTileCounts[i] = make([]int, 10, 10)
+  } // allocating an extra two positions for the honor suit
+
+  for i := 0; i < 4; i++ {
+    for j := 0; j < 10; j++ {
+      unavailableTileCounts[i][j] += dtileCounts[i][j]
+      unavailableTileCounts[i][j] += u0tileCounts[i][j]
+      unavailableTileCounts[i][j] += u1tileCounts[i][j]
+      unavailableTileCounts[i][j] += u2tileCounts[i][j]
+      unavailableTileCounts[i][j] += u3tileCounts[i][j]
+    }
+  }
+
+  if (VerboseDebug) {
+    fmt.Println("[vd] internal hand", tileCounts, tileCountsSum, tileValuesSum)
+    fmt.Println("[vd] discard", dtileCounts, dtileCountsSum, dtileValuesSum)
+    fmt.Println("[vd] p0 public sets", u0tileCounts, u0tileCountsSum, u0tileValuesSum)
+    fmt.Println("[vd] p1 public sets", u1tileCounts, u1tileCountsSum, u1tileValuesSum)
+    fmt.Println("[vd] p2 public sets", u2tileCounts, u2tileCountsSum, u2tileValuesSum)
+    fmt.Println("[vd] p3 public sets", u3tileCounts, u3tileCountsSum, u3tileValuesSum)
+    fmt.Println("[vd] unavailable tiles", unavailableTileCounts)    
+  }
+  
+  var hiddenTileCount int
+  for _, tile := range h.Hidden {
+    if tile != EmptyTile {
+      hiddenTileCount++
+    }
+  }
+  
+  // remove intact sets from consideration
+  // note: misses options (e.g., if 1-2-3-4 is present, 1-2-3 will be preferentially removed)
+  for i := 0; i < 4; i++ {
+    for j := 1; j < 10; j++ {
+      if tileCounts[i][j] >= 3 {
+        tileCounts[i][j] -= 3
+        
+        unavailableTileCounts[i][j] += 3
+        
+        hiddenTileCount -= 3
+      } else if i != 3 && j <= 7 && tileCounts[i][j] > 0 && tileCounts[i][j+1] > 0 && tileCounts[i][j+2] > 0 {
+        tileCounts[i][j]--
+        tileCounts[i][j+1]--
+        tileCounts[i][j+2]--
+        
+        unavailableTileCounts[i][j]++
+        unavailableTileCounts[i][j+1]++
+        unavailableTileCounts[i][j+2]++
+        
+        hiddenTileCount -= 3
+      }
+    }
+  }
+  
+  // pairs (unless blocked) > sequential twos in middle > sequential twos at end > gapped twos > singles
+  
+  // cannot have a pair remaining; otherwise, it would be a win
+  for i := 0; i < 4; i++ {
+    for j := 1; j < 10; j++ {
+      if hiddenTileCount > 2 && tileCounts[i][j] >= 2 && unavailableTileCounts[i][j] < 2 {
+        tileCounts[i][j] -= 2
+        
+        unavailableTileCounts[i][j] += 2
+        
+        hiddenTileCount -= 2
+      }
+    }
+  }
+  
+  // check sequential twos in middle
+  for i := 0; i < 3; i++ {
+    for j := 2; j < 7; j++ {
+      if hiddenTileCount > 2 && tileCounts[i][j] >= 1 && tileCounts[i][j+1] >= 1 && (unavailableTileCounts[i][j+2] < 3 || unavailableTileCounts[i][j-1] < 3) {
+        tileCounts[i][j]--
+        tileCounts[i][j+1]--
+        
+        unavailableTileCounts[i][j]++
+        unavailableTileCounts[i][j+1]++
+                  
+        hiddenTileCount -= 2
+      }
+    }
+  }
+  
+  // check twos at edges (start)
+  for i := 0; i < 3; i++ {
+    if hiddenTileCount > 2 && tileCounts[i][1] >= 1 && tileCounts[i][2] >= 1 && unavailableTileCounts[i][3] < 3 {
+      tileCounts[i][1]--
+      tileCounts[i][2]--
+      
+      unavailableTileCounts[i][1]++
+      unavailableTileCounts[i][2]++
+                
+      hiddenTileCount -= 2
+    }
+  }
+  
+  // check twos at edges (end)
+  for i := 0; i < 3; i++ {
+    if hiddenTileCount > 2 && tileCounts[i][8] >= 1 && tileCounts[i][9] >= 1 && unavailableTileCounts[i][7] < 3 {
+      tileCounts[i][8]--
+      tileCounts[i][9]--
+      
+      unavailableTileCounts[i][8]++
+      unavailableTileCounts[i][9]++
+                
+      hiddenTileCount -= 2
+    }
+  }
+  
+  // check for gapped sequence
+  for i := 0; i < 3; i++ {
+    for j := 1; j < 8; j++ {
+      if hiddenTileCount > 2 && tileCounts[i][j] >= 1 && tileCounts[i][j+2] >= 1 && unavailableTileCounts[i][j+1] < 3 {
+        tileCounts[i][j]--
+        tileCounts[i][j+2]--
+        
+        unavailableTileCounts[i][j]++
+        unavailableTileCounts[i][j+2]++
+                  
+        hiddenTileCount -= 2
+      }
+    }
+  }
+  
+  // choose randomly for now
+  options := make([]string,0,0)
+  optionCounter := 0
+  
+  for i := 0; i < 4; i++ {
+    for j := 1; j < 10; j++ {
+      for k := 0; k < tileCounts[i][j]; k++ {
+        options = append(options,UnicodeDisplay[i][j])
+        optionCounter++
+      }
+    }
+  }
+  
+  if VerboseDebug {
+    fmt.Println("[vd] suggested discard options: ",options, optionCounter, hiddenTileCount)
+  }
+  // TODO: centralize rand
+  insecureRand.Seed(12345);
+  choice := insecureRand.Intn(optionCounter)
+  //fmt.Println(tileCounts, tileCountsSum, tileValuesSum)
+  handPosition := 0
+  
+  h.Sort()
+  
+  for i := 0; i < len(h.Hidden); i++ {
+    if h.Hidden[i].Ud == options[choice] {
+      if VerboseDebug {
+        fmt.Println("[vd] suggested discard: ", options[choice])
+      }
+      handPosition = i
+    }
+  }
+  
+  return strconv.Itoa(handPosition)
 }
 
 

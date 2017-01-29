@@ -1,6 +1,6 @@
 /*
 mahjong: A computer-mediated Mah Jong game implemented in Go
-Copyright (C) 2016 <code@0n0e.com>
+Copyright (C) 2016-7 <code@0n0e.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -51,6 +51,10 @@ type Game struct {
   CurrentPlayer int
   // dealer
   StartPlayer int
+  
+  // # throughout
+  // output log
+  OutputLog *log.Logger
 }
 
 func New() *Game {
@@ -58,7 +62,7 @@ func New() *Game {
 }
 
 // per game init
-func (g *Game) Initialize(dealer int) {
+func (g *Game) Initialize(dealer int, computerPlayers []bool) {
   // # tileCollection
   g.UndealtTileCount = TilesInGame
   g.ReplacementPointer = -1 // to be initialized later
@@ -106,6 +110,7 @@ func (g *Game) Initialize(dealer int) {
     g.Hands[i].Hidden = make([]Tile, 14, 14)
     g.Hands[i].Revealed = make([]Tile, 8, 8)
     g.Hands[i].Player = i
+    g.Hands[i].ComputerPlayer = computerPlayers[i]
   }
 
   // # stateMachineOps
@@ -128,6 +133,7 @@ func (g *Game) Initialize(dealer int) {
     
   // simulate dice roll to set deal locations
   diceRoll := RollOneDice(DeterministicRand)+RollOneDice(DeterministicRand)+RollOneDice(DeterministicRand)
+  g.OutputLog.Println("dice roll:", diceRoll)
   
   err = g.SetDealLocations(diceRoll)
   if err != nil {
