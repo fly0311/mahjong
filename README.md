@@ -17,7 +17,7 @@ When prompted, enter a valid value (e.g., `y`, `n`, `0-n`), as requested. If an 
 
 `./main -singlePlayer=true`
 
-The computer players in single player mode currently accepts presented win opportunities and, naively, accepts pong, triple, and seq opportunities, even if unnecessary or strategically suboptimal.
+The computer players in single player mode currently accept presented win opportunities and, naively, accept pong, triple, and seq opportunities, even if unnecessary or strategically suboptimal.
 
 Discard tile selection aims to retain intact sets and preferentially preserves plausible pairs, consecutive tiles that are not at the ends (to allow for up to two matching opportunities), consecutive tiles at the ends, and gapped consecutive tiles.
 
